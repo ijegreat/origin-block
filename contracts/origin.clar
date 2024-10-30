@@ -13,7 +13,7 @@
   {
     owner: principal,
     manufacturer: principal,
-    status: (string-ascii 20),
+    status: (string-ascii 12),
     quality-score: uint,
     quantity: uint,
     timestamp: uint
@@ -24,7 +24,7 @@
   { product-id: (string-ascii 32), index: uint }
   {
     owner: principal,
-    status: (string-ascii 20),
+    status: (string-ascii 12),
     quality-score: uint,
     quantity: uint,
     timestamp: uint
@@ -33,6 +33,7 @@
 
 ;; Define data variables
 (define-data-var next-index uint u0)
+(define-data-var total-products uint u0)
 
 ;; Private functions
 (define-private (is-authorized (caller principal))
@@ -40,11 +41,11 @@
       (is-some (index-of (list contract-owner) caller)))
 )
 
-(define-private (validate-status (status (string-ascii 20)))
+(define-private (validate-status (status (string-ascii 12)))
   (is-some (index-of (list "manufactured" "in-transit" "delivered" "sold") status))
 )
 
-(define-private (add-to-history (product-id (string-ascii 32)) (owner principal) (status (string-ascii 20)) (quality-score uint) (quantity uint))
+(define-private (add-to-history (product-id (string-ascii 32)) (owner principal) (status (string-ascii 12)) (quality-score uint) (quantity uint))
   (let ((index (var-get next-index)))
     (map-set product-history
       { product-id: product-id, index: index }
@@ -78,6 +79,7 @@
               timestamp: block-height
             }
           )
+          (var-set total-products (+ (var-get total-products) u1))
           (add-to-history product-id caller "manufactured" u100 quantity)
           (ok true)
         )
@@ -105,7 +107,7 @@
   )
 )
 
-(define-public (update-status (product-id (string-ascii 32)) (new-status (string-ascii 20)))
+(define-public (update-status (product-id (string-ascii 32)) (new-status (string-ascii 12)))
   (let ((product (unwrap! (map-get? products { product-id: product-id }) err-product-not-found))
         (caller tx-sender))
     (if (and (is-eq (get owner product) caller) (validate-status new-status))
@@ -170,4 +172,12 @@
 
 (define-read-only (get-latest-history-index)
   (- (var-get next-index) u1)
+)
+
+(define-read-only (get-total-products)
+  (var-get total-products)
+)
+
+(define-read-only (product-exists (product-id (string-ascii 32)))
+  (is-some (map-get? products { product-id: product-id }))
 )
