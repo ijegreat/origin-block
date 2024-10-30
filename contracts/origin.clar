@@ -6,6 +6,7 @@
 (define-constant err-product-exists (err u101))
 (define-constant err-product-not-found (err u102))
 (define-constant err-invalid-status (err u103))
+(define-constant err-invalid-input (err u104))
 
 ;; Define data maps
 (define-map products
@@ -65,6 +66,8 @@
 ;; Public functions
 (define-public (register-product (product-id (string-ascii 32)) (quantity uint))
   (let ((caller tx-sender))
+    (asserts! (> (len product-id) u0) err-invalid-input)
+    (asserts! (> quantity u0) err-invalid-input)
     (if (is-authorized caller)
       (if (is-none (map-get? products { product-id: product-id }))
         (begin
@@ -93,6 +96,8 @@
 (define-public (transfer-ownership (product-id (string-ascii 32)) (new-owner principal))
   (let ((product (unwrap! (map-get? products { product-id: product-id }) err-product-not-found))
         (caller tx-sender))
+    (asserts! (> (len product-id) u0) err-invalid-input)
+    (asserts! (not (is-eq new-owner caller)) err-invalid-input)
     (if (is-eq (get owner product) caller)
       (begin
         (map-set products
@@ -110,7 +115,9 @@
 (define-public (update-status (product-id (string-ascii 32)) (new-status (string-ascii 12)))
   (let ((product (unwrap! (map-get? products { product-id: product-id }) err-product-not-found))
         (caller tx-sender))
-    (if (and (is-eq (get owner product) caller) (validate-status new-status))
+    (asserts! (> (len product-id) u0) err-invalid-input)
+    (asserts! (validate-status new-status) err-invalid-status)
+    (if (is-eq (get owner product) caller)
       (begin
         (map-set products
           { product-id: product-id }
@@ -119,10 +126,7 @@
         (add-to-history product-id caller new-status (get quality-score product) (get quantity product))
         (ok true)
       )
-      (if (not (validate-status new-status))
-        err-invalid-status
-        err-not-authorized
-      )
+      err-not-authorized
     )
   )
 )
@@ -130,6 +134,8 @@
 (define-public (update-quality (product-id (string-ascii 32)) (quality-score uint))
   (let ((product (unwrap! (map-get? products { product-id: product-id }) err-product-not-found))
         (caller tx-sender))
+    (asserts! (> (len product-id) u0) err-invalid-input)
+    (asserts! (<= quality-score u100) err-invalid-input)
     (if (is-authorized caller)
       (begin
         (map-set products
@@ -147,6 +153,8 @@
 (define-public (update-quantity (product-id (string-ascii 32)) (quantity uint))
   (let ((product (unwrap! (map-get? products { product-id: product-id }) err-product-not-found))
         (caller tx-sender))
+    (asserts! (> (len product-id) u0) err-invalid-input)
+    (asserts! (> quantity u0) err-invalid-input)
     (if (is-eq (get owner product) caller)
       (begin
         (map-set products
